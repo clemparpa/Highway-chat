@@ -283,3 +283,10 @@ export const confirmTwoFactor = () => '/api/auth/2fa/confirm';
 export const disableTwoFactor = () => '/api/auth/2fa/disable';
 export const regenerateBackupCodes = () => '/api/auth/2fa/backup/regenerate';
 export const verifyTwoFactorTemp = () => '/api/auth/2fa/verify-temp';
+
+
+// Integration Endpoints
+export const initIntegrationAuth = (service: string, provider: string) => `/api/integrations/${provider}/${service}/init`;
+export const revokeIntegration = (provider: string) => `/api/integrations/${provider}/revoke`;
+export const integrationAccessToken = (provider: string) => `/api/integrations/${provider}/access_token`;
+export const integrationEnabled = (provider: string) => `/api/integrations/${provider}/enabled`;

@@ -18,6 +18,7 @@ const { logger } = require('~/config');
 const validateImageRequest = require('./middleware/validateImageRequest');
 const errorController = require('./controllers/ErrorController');
 const configureSocialLogins = require('./socialLogins');
+const configureIntegrations = require("./integrations")
 const AppService = require('./services/AppService');
 const staticCache = require('./utils/staticCache');
 const noIndex = require('./middleware/noIndex');
@@ -89,6 +90,8 @@ const startServer = async () => {
     await configureSocialLogins(app);
   }
 
+  await configureIntegrations(app);
+
   app.use('/oauth', routes.oauth);
   /* API Endpoints */
   app.use('/api/auth', routes.auth);
@@ -119,6 +122,7 @@ const startServer = async () => {
   app.use('/api/bedrock', routes.bedrock);
 
   app.use('/api/tags', routes.tags);
+  app.use('/api/integrations', routes.integrations)
 
   app.use((req, res) => {
     res.set({

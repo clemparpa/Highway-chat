@@ -15,6 +15,7 @@ import { useConversationsInfiniteQuery } from '~/data-provider';
 import { Conversations } from '~/components/Conversations';
 import SearchBar from './SearchBar';
 import NewChat from './NewChat';
+import IntegrationsList from './Integrations/IntegrationsList';
 import { cn } from '~/utils';
 import store from '~/store';
 
@@ -212,6 +213,7 @@ const Nav = memo(
                         headerButtons={headerButtons}
                         isSmallScreen={isSmallScreen}
                       />
+                      <IntegrationsList />
                       <Conversations
                         conversations={conversations}
                         moveToTop={moveToTop}

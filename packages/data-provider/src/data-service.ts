@@ -799,3 +799,28 @@ export function verifyTwoFactorTemp(
 ): Promise<t.TVerify2FATempResponse> {
   return request.post(endpoints.verifyTwoFactorTemp(), payload);
 }
+
+// Integration Auth
+export function initIntegrationAuth(
+  payload: t.TIntegrationRequest)
+  :  Promise<t.TIntegrationInitResponse>{
+    return request.post(endpoints.initIntegrationAuth(payload.service, payload.provider))
+}
+
+export function revokeIntegration(
+  payload: Pick<t.TIntegrationRequest, "provider">
+): Promise<t.TIntegrationRevokeResponse>{
+  return request.post(endpoints.revokeIntegration(payload.provider))
+}
+
+export function integrationAccessToken(
+  payload: Pick<t.TIntegrationRequest, "provider">
+): Promise<t.TIntegrationAccessTokenResponse>{
+  return request.get(endpoints.integrationAccessToken(payload.provider))
+}
+
+export function integrationEnabled(
+  payload: Pick<t.TIntegrationRequest, "provider">
+): Promise<t.TIntegrationEnabledResponse>{
+  return request.get(endpoints.integrationEnabled(payload.provider))
+}

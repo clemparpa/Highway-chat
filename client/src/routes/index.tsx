@@ -8,6 +8,7 @@ import {
   ApiErrorWatcher,
   TwoFactorScreen,
 } from '~/components/Auth';
+import { GoogleWorkspaceIntegrations } from '~/components/Integrations';
 import { AuthContextProvider } from '~/hooks/AuthContext';
 import RouteErrorBoundary from './RouteErrorBoundary';
 import StartupLayout from './Layouts/Startup';
@@ -89,6 +90,10 @@ export const router = createBrowserRouter([
           {
             path: 'search',
             element: <Search />,
+          },
+          {
+            path: 'integrations/google-workspace',
+            element: <GoogleWorkspaceIntegrations />,
           },
         ],
       },
