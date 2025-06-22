@@ -48,6 +48,8 @@ export enum QueryKeys {
   banner = 'banner',
   integrationEnabled = 'integrationEnabled',
   integrationAccessToken = 'integrationAccessToken',
+  /* Memories */
+  memories = 'memories',
 }
 
 export enum MutationKeys {
@@ -72,4 +74,5 @@ export enum MutationKeys {
   updateRole = 'updateRole',
   enableTwoFactor = 'enableTwoFactor',
   verifyTwoFactor = 'verifyTwoFactor',
+  updateMemoryPreferences = 'updateMemoryPreferences',
 }

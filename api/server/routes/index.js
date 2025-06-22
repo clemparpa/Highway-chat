@@ -4,6 +4,7 @@ const tokenizer = require('./tokenizer');
 const endpoints = require('./endpoints');
 const staticRoute = require('./static');
 const messages = require('./messages');
+const memories = require('./memories');
 const presets = require('./presets');
 const prompts = require('./prompts');
 const balance = require('./balance');
@@ -27,6 +28,7 @@ const keys = require('./keys');
 const user = require('./user');
 const ask = require('./ask');
 const integrations = require('./integrations');
+const mcp = require('./mcp');
 
 module.exports = {
   ask,
@@ -52,10 +54,12 @@ module.exports = {
   presets,
   balance,
   messages,
+  memories,
   endpoints,
   tokenizer,
   assistants,
   categories,
   staticRoute,
   integrations,
+  mcp,
 };

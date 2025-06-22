@@ -62,3 +62,4 @@ export { default as ThumbUpIcon } from './ThumbUpIcon';
 export { default as ThumbDownIcon } from './ThumbDownIcon';
 export { default as XAIcon } from './XAIcon';
 export { GoogleAgendaIcon, GoogleDriveIcon, GoogleGMailIcon } from './GoogleWorkspaceIcon';
+export { default as PersonalizationIcon } from './PersonalizationIcon';
