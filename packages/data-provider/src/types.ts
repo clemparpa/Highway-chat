@@ -622,3 +622,26 @@ export type TBalanceResponse = {
   lastRefill?: Date;
   refillAmount?: number;
 };
+
+
+export type TIntegrationRequest = {
+  provider: string;
+  service: string;
+}
+
+export type TIntegrationInitResponse = {
+  integrationURL: string;
+}
+
+export type TIntegrationRevokeResponse = { 
+  accessTokenDeleted: number, 
+  refreshTokenDeleted: number 
+}
+
+export type TIntegrationAccessTokenResponse = {
+  accessToken: string;
+}
+
+export type TIntegrationEnabledResponse = {
+  enabled: Array<string>;
+}

@@ -1,0 +1,25 @@
+services: 
+  mongodb:
+    container_name: chat-mongodb
+    image: mongo
+    restart: always
+    user: "${UID}:${GID}"
+    ports:
+     - 27017:27017
+    volumes:
+      - ./data-node:/data/db
+    command: mongod --noauth
+  
+  mongo-express: 
+    image: mongo-express
+    container_name: convo-db-client      
+    ports:
+      - 8081:8081
+    environment:
+      PORT: 8081
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/chat?ssl=false
+      ME_CONFIG_BASICAUTH_USERNAME: root
+      ME_CONFIG_BASICAUTH_PASSWORD: password
+      ME_CONFIG_BASICAUTH_ENABLED: true
+    depends_on:
+      - mongodb

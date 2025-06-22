@@ -363,3 +363,80 @@ export const useUpdateFeedbackMutation = (
     },
   );
 };
+
+// Integration hooks
+export const useIntegrationEnabledQuery = (
+  provider: string,
+  config?: UseQueryOptions<t.TIntegrationEnabledResponse>,
+): QueryObserverResult<t.TIntegrationEnabledResponse> => {
+  return useQuery<t.TIntegrationEnabledResponse>(
+    [QueryKeys.integrationEnabled, provider],
+    () => dataService.integrationEnabled({ provider }),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      ...config,
+    },
+  );
+};
+
+export const useInitIntegrationAuthMutation = (
+  options?: m.IntegrationOptions<t.TIntegrationInitResponse, t.TIntegrationRequest>,
+): UseMutationResult<t.TIntegrationInitResponse, unknown, t.TIntegrationRequest, unknown> => {
+  const queryClient = useQueryClient();
+  const { onSuccess, onError, ...mutationOptions } = options ?? {};
+  
+  return useMutation(
+    (payload: t.TIntegrationRequest) => dataService.initIntegrationAuth(payload),
+    {
+      ...mutationOptions,
+      onSuccess: (data, variables, context) => {
+        onSuccess?.(data, variables, context);
+      },
+      onError: (error, variables, context) => {
+        onError?.(error, variables, context);
+      },
+    },
+  );
+};
+
+export const useRevokeIntegrationMutation = (
+  options?: m.IntegrationOptions<t.TIntegrationRevokeResponse, Pick<t.TIntegrationRequest, 'provider'>>,
+): UseMutationResult<t.TIntegrationRevokeResponse, unknown, Pick<t.TIntegrationRequest, 'provider'>, unknown> => {
+  const queryClient = useQueryClient();
+  const { onSuccess, onError, ...mutationOptions } = options ?? {};
+  
+  return useMutation(
+    (payload: Pick<t.TIntegrationRequest, 'provider'>) => dataService.revokeIntegration(payload),
+    {
+      ...mutationOptions,
+      onSuccess: (data, variables, context) => {
+        // Invalidate integration status when revoking
+        queryClient.invalidateQueries([QueryKeys.integrationEnabled, variables.provider]);
+        onSuccess?.(data, variables, context);
+      },
+      onError: (error, variables, context) => {
+        onError?.(error, variables, context);
+      },
+    },
+  );
+};
+
+export const useIntegrationAccessTokenQuery = (
+  provider: string,
+  config?: UseQueryOptions<t.TIntegrationAccessTokenResponse>,
+): QueryObserverResult<t.TIntegrationAccessTokenResponse> => {
+  return useQuery<t.TIntegrationAccessTokenResponse>(
+    [QueryKeys.integrationAccessToken, provider],
+    () => dataService.integrationAccessToken({ provider }),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      retry: false,
+      ...config,
+    },
+  );
+};

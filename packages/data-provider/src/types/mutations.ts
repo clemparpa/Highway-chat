@@ -368,3 +368,9 @@ export type TLogoutResponse = {
 };
 
 export type LogoutOptions = MutationOptions<TLogoutResponse, undefined>;
+
+/* Integration mutations */
+export type IntegrationOptions<TResponse = unknown, TRequest = unknown> = MutationOptions<
+  TResponse,
+  TRequest
+>;

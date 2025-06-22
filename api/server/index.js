@@ -18,6 +18,7 @@ const { jwtLogin, ldapLogin, passportLogin } = require('~/strategies');
 const errorController = require('./controllers/ErrorController');
 const initializeMCP = require('./services/initializeMCP');
 const configureSocialLogins = require('./socialLogins');
+const configureIntegrations = require("./integrations")
 const AppService = require('./services/AppService');
 const staticCache = require('./utils/staticCache');
 const noIndex = require('./middleware/noIndex');
@@ -91,6 +92,8 @@ const startServer = async () => {
     await configureSocialLogins(app);
   }
 
+  await configureIntegrations(app);
+
   app.use('/oauth', routes.oauth);
   /* API Endpoints */
   app.use('/api/auth', routes.auth);
@@ -121,8 +124,8 @@ const startServer = async () => {
   app.use('/api/bedrock', routes.bedrock);
   app.use('/api/memories', routes.memories);
   app.use('/api/tags', routes.tags);
+  app.use('/api/integrations', routes.integrations)
   app.use('/api/mcp', routes.mcp);
-
   app.use((req, res) => {
     res.set({
       'Cache-Control': process.env.INDEX_CACHE_CONTROL || 'no-cache, no-store, must-revalidate',

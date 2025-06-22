@@ -46,6 +46,8 @@ export enum QueryKeys {
   health = 'health',
   userTerms = 'userTerms',
   banner = 'banner',
+  integrationEnabled = 'integrationEnabled',
+  integrationAccessToken = 'integrationAccessToken',
   /* Memories */
   memories = 'memories',
 }

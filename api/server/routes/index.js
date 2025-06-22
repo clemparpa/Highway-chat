@@ -27,6 +27,7 @@ const edit = require('./edit');
 const keys = require('./keys');
 const user = require('./user');
 const ask = require('./ask');
+const integrations = require('./integrations');
 const mcp = require('./mcp');
 
 module.exports = {
@@ -59,5 +60,6 @@ module.exports = {
   assistants,
   categories,
   staticRoute,
+  integrations,
   mcp,
 };
