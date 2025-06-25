@@ -4,15 +4,34 @@ const { getRandomValues, decryptV3, encryptV3 } = require('~/server/utils/crypto
 const { logger } = require('~/config');
 
 const GOOGLE_SCOPES = {
+    userinfo: [
+      'https://www.googleapis.com/auth/userinfo.email',
+    ],
     gmail: [
-      'https://www.googleapis.com/auth/gmail.readonly',    
+      'https://www.googleapis.com/auth/gmail.readonly',  
+      'https://www.googleapis.com/auth/gmail.compose'  
     ],
     drive: [
-      'https://www.googleapis.com/auth/drive.readonly'
+      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/drive.file'      
     ],
     calendar: [
-      'https://www.googleapis.com/auth/calendar.readonly'
-    ]
+      'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/calendar.events'
+    ],
+    // docs: [
+    //   'https://www.googleapis.com/auth/documents',
+    //   'https://www.googleapis.com/auth/documents.readonly'
+    // ],
+    // sheets: [
+    //   'https://www.googleapis.com/auth/spreadsheets.readonly',
+    //   'https://www.googleapis.com/auth/spreadsheets'
+    // ],
+    // chat: [
+    //   'https://www.googleapis.com/auth/chat.messages.readonly',
+    //   'https://www.googleapis.com/auth/chat.messages',
+    //   'https://www.googleapis.com/auth/chat.spaces'      
+    // ]    
   }
 
 const REVERSE_GOOGLE_SCOPES = Object.fromEntries(
@@ -185,6 +204,53 @@ const initAuthController = async (req, res) => {
     }
   }
 
+const _createSessionStateToken = async (userId, state, service) => {
+  return await createToken({
+      userId: userId,
+      type: 'integration-state-token',
+      identifier: `integration-${PROVIDER}-${userId}-${Date.now()}`,
+      token: state,
+      expiresIn: 300,
+      metadata: {
+        provider: PROVIDER,
+        service: service,
+        userId: userId,
+      }
+  });
+}
+
+const _retrieveSessionStateToken = async (state) => {
+  logger.debug(`[retrieveSessionStateToken] Retrieving session state token`);
+  const token = await findToken({
+    token: state
+  })
+  logger.debug(
+    `[retrieveSessionStateToken] Found token: ${!!token}`);
+  if (!token) {
+    return {};
+  }
+  if (new Date() > token.expiresAt) {
+    await deleteTokens({ token: token.token });
+    return {};
+  }
+  const { service, userId } = token?.metadata || {};
+  const retrievedState = token.token;
+  await deleteTokens({ token: token.token });    
+  if (!service || !userId || !retrievedState) {
+    return {};
+  }
+
+  if(state !== retrievedState) {
+    logger.warn(`[retrieveSessionStateToken] State mismatch for user ${userId}. Expected: ${retrievedState}, Received: ${state}`);
+    return {};
+  }
+
+  return {
+    userId: userId,
+    service: service,
+  };
+}
+
 const askAuthTokenController = async (req, res, next) => {
     try {
       const { token: initToken } = req.query;
@@ -231,6 +297,11 @@ const askAuthTokenController = async (req, res, next) => {
       } else {
         return res.redirect(`${domains.server}/api/integrations/error?reason=invalid_service`);
       }
+
+      scopes = [...GOOGLE_SCOPES.userinfo, ...scopes]
+
+      const state = await getRandomValues(32)
+      const stateToken = _createSessionStateToken(userId, state, askedService)
       
       await passport.authenticate(`integrations-${PROVIDER}`, {
         session: false,
@@ -238,7 +309,7 @@ const askAuthTokenController = async (req, res, next) => {
         includeGrantedScopes: true,
         accessType: "offline",
         scope: scopes,  
-        state: `${userId}/${askedService}`                
+        state: state                
       })(req, res, next);
     } catch (error) {
       logger.error('[askAuthTokenController]', error);
@@ -260,7 +331,7 @@ const askAuthTokenCallbackController = async (req, res, next) => {
     }
 }
 
-const _createOrUpdateIntegrationToken = async ({userId, identifier, token, expiresIn, tokenType, services}) => {
+const _createOrUpdateIntegrationToken = async ({userId, identifier, token, expiresIn, tokenType, services, userEmail}) => {
   const previousToken = await findToken({identifier})
   if(!!previousToken){
     return await updateToken({identifier}, {
@@ -269,6 +340,7 @@ const _createOrUpdateIntegrationToken = async ({userId, identifier, token, expir
       metadata: {
         type: tokenType,
         provider: PROVIDER,
+        email: userEmail,
         services
       }
     })
@@ -282,7 +354,8 @@ const _createOrUpdateIntegrationToken = async ({userId, identifier, token, expir
     metadata: {
       type: tokenType,
       provider: PROVIDER,
-      services
+      services,
+      email: userEmail
     }
   })
 }
@@ -290,14 +363,21 @@ const _createOrUpdateIntegrationToken = async ({userId, identifier, token, expir
 const createAccessAndRefreshTokenController = async (req, res, next) => {
     try {
       const { state } = req.query;
-      const [userId, service] = state.split('/');
+
+      const { userId, service} = await _retrieveSessionStateToken(state);
 
       if (!userId || !service) {
         return res.redirect(`${domains.server}/api/integrations/error?reason=invalid_state`);
       } 
 
-      const { accessToken, refreshToken, expiresIn, refreshTokenExpiresIn, scopes: services } = req.user;
-   
+      const { accessToken, refreshToken, expiresIn, refreshTokenExpiresIn, scopes: services, profile } = req.user;
+      const userEmail = profile?.emails?.[0]?.value || profile?._json?.email;
+
+      if( !userEmail) {
+        logger.error(`[createAccessAndRefreshTokenController] No email found in profile for user ${userId}`);
+        return res.redirect(`${domains.server}/api/integrations/error?reason=missing_email`);
+      }
+
       if (!accessToken && !refreshToken) {
         return res.redirect(`${domains.server}/api/integrations/error?reason=failed_oauth`);
       }
@@ -310,6 +390,7 @@ const createAccessAndRefreshTokenController = async (req, res, next) => {
           expiresIn: expiresIn,
           tokenType: "access_token",
           services,
+          userEmail,
         });
       }
       
@@ -321,6 +402,7 @@ const createAccessAndRefreshTokenController = async (req, res, next) => {
           expiresIn: refreshTokenExpiresIn,
           tokenType: "refresh_token",
           services,
+          userEmail,
         });
       }
       

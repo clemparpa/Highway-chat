@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireJwtAuth } = require('~/server/middleware');
+const { requireJwtAuth, requireIntegrationAuth, loginLimiter } = require('~/server/middleware');
 const { isEnabled } = require('~/server/utils');
 const {
   initAuthController,
@@ -42,7 +42,7 @@ router.get('/google-workspace/enabled',
 )
 
 router.get('/google-workspace/access_token',
-  requireJwtAuth,
+  requireIntegrationAuth,
   getAccessTokenController
 )
 
