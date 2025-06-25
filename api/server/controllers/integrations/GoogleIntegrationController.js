@@ -169,7 +169,14 @@ const getAccessTokenController = async (req, res) => {
         if (token?.token) {
           tokenValue = decryptV3(token.token);
         }
-        res.json({ accessToken: tokenValue });
+
+        const userEmail = token?.metadata?.email;
+        if (!tokenValue || !userEmail) {
+            logger.warn(`[getAccessTokenController] No access token found for user ${req.user.id}`);
+            return res.status(401).json({ message: 'No access token found' });
+        }
+
+        res.json({ accessToken: tokenValue, email: userEmail });
     } catch (error) {
         logger.error('[getAccessTokenController]', error);
         return res.status(500).json({ message: 'Something went wrong.' });
