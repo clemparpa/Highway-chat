@@ -19,19 +19,19 @@ const GOOGLE_SCOPES = {
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/calendar.events'
     ],
-    // docs: [
-    //   'https://www.googleapis.com/auth/documents',
-    //   'https://www.googleapis.com/auth/documents.readonly'
-    // ],
-    // sheets: [
-    //   'https://www.googleapis.com/auth/spreadsheets.readonly',
-    //   'https://www.googleapis.com/auth/spreadsheets'
-    // ],
-    // chat: [
-    //   'https://www.googleapis.com/auth/chat.messages.readonly',
-    //   'https://www.googleapis.com/auth/chat.messages',
-    //   'https://www.googleapis.com/auth/chat.spaces'      
-    // ]    
+    docs: [
+      'https://www.googleapis.com/auth/documents',
+      'https://www.googleapis.com/auth/documents.readonly'
+    ],
+    sheets: [
+      'https://www.googleapis.com/auth/spreadsheets.readonly',
+      'https://www.googleapis.com/auth/spreadsheets'
+    ],
+    chat: [
+      'https://www.googleapis.com/auth/chat.messages.readonly',
+      'https://www.googleapis.com/auth/chat.messages',
+      'https://www.googleapis.com/auth/chat.spaces'      
+    ]    
   }
 
 const REVERSE_GOOGLE_SCOPES = Object.fromEntries(
@@ -294,17 +294,10 @@ const askAuthTokenController = async (req, res, next) => {
 
       logger.debug(`[askAuthTokenController] Starting OAuth ${askedService} for user ${userId}`);
 
-      let scopes = null;
-      if (askedService === "gmail") {
-        scopes = GOOGLE_SCOPES.gmail;        
-      } else if (askedService === "calendar") {
-        scopes = GOOGLE_SCOPES.calendar;
-      } else if (askedService === "drive") {
-        scopes = GOOGLE_SCOPES.drive;
-      } else {
+      let scopes = GOOGLE_SCOPES?.[askedService] ?? null;
+      if (!scopes) {
         return res.redirect(`${domains.server}/api/integrations/error?reason=invalid_service`);
       }
-
       scopes = [...GOOGLE_SCOPES.userinfo, ...scopes]
 
       const state = await getRandomValues(32)
