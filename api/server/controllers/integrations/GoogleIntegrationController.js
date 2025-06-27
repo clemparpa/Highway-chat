@@ -1,6 +1,6 @@
 const passport = require('passport');
 const { createToken, findToken, deleteTokens, updateToken} = require('~/models')
-const { getRandomValues, decryptV3, encryptV3 } = require('~/server/utils/crypto');
+const { getRandomValues, decryptV3, encryptV3 } = require('@librechat/api');
 const { logger } = require('~/config');
 
 const GOOGLE_SCOPES = {
@@ -146,7 +146,7 @@ const getAccessTokenController = async (req, res) => {
             return res.status(401).json({ message: 'No access token found' });
         }
 
-        if (new Date() > token.expiresAt - 100) {
+        if (new Date() > token.expiresAt - 60000) {
             const newAccessTokenValues = await _refreshAccessTokenUtil(req.user.id);
 
             if (!newAccessTokenValues) {

@@ -29,7 +29,7 @@ const IntegrationsButton = memo(({ id, labelKey, icons, url }: IntegrationButton
        <div className="flex items-center space-x-1">
        {icons.map((Icon, index) => <Icon key={index} className="h-5 w-5" />)}
        </div>
-       <span className="font-normal">{localize(labelKey)}</span>
+       <span className="font-normal text-text-primary">{localize(labelKey)}</span>
       </Button>
   )
   }

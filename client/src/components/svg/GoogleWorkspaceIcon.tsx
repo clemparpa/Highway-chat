@@ -57,3 +57,58 @@ export const GoogleAgendaIcon = ({ size = 16, className = '' }) => (
         <path d="M172,56V32c0-6.63-5.37-12-12-12h-24v36H172z" fill="#1967D2"/></g></g>
     </svg>
 );
+
+export const GoogleChatIcon = ({ size = 16, className = '' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" 
+    width={size} 
+    height={size} 
+    viewBox="0 0 192 192" 
+    fill="none">
+        <g clip-path="url(#clip0_4_1360)">
+        <path d="M178.52 59.93L159.92 63.55L140.07 59.93L135.76 39.54L140.07 21.48L178.52 59.93Z" fill="#E94335"/>
+        <path d="M140.07 59.9299V119.01H71.61L51.92 138.7L49.37 147.9L51.92 157.45V180.3C51.92 185.83 58.61 188.6 62.52 184.69L89.76 157.45H167.26C173.47 157.45 178.51 152.41 178.51 146.2V59.9299H140.06H140.07Z" fill="#34A753"/>
+        <path d="M51.93 119L31.29 121.71L13.48 119V59.93L32.69 56.84L51.93 59.93V119Z" fill="#4284F3"/>
+        <path d="M51.93 59.93H13.48V32.74C13.48 26.53 18.52 21.49 24.73 21.49H51.92L55.45 39.7L51.92 59.93H51.93Z" fill="#1967D1"/>
+        <path d="M13.47 145.45L13.47 119H51.92V157.45H25.47C18.85 157.45 13.47 152.07 13.47 145.45Z" fill="#188038"/>
+        <path d="M140.07 59.93V21.48L51.9199 21.48V59.93L140.07 59.93Z" fill="#FABB04"/>
+        </g>
+        <defs>
+        <clipPath id="clip0_4_1360">
+        <rect width="192" height="192" fill="white"/>
+        </clipPath>
+        </defs>
+    </svg>
+);
+
+
+export const GoogleDocsIcon = ({ size = 16, className = '' }) => (
+    <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    enable-background="new 0 0 192 192" 
+    height={size} 
+    viewBox="0 0 192 192" 
+    width={size}>
+        <rect fill="none" 
+        height="192" width="192"/><g>
+        <rect fill="#FFFFFF" height="14" width="76" x="58" y="98"/>
+        <rect fill="#FFFFFF" height="14" width="56" x="58" y="122"/>
+        <polygon fill="#1967D2" points="116,52 140.13,56.56 160,52 116,8 109.93,28.86"/>
+        <rect fill="#FFFFFF" height="14" width="76" x="58" y="74"/>
+        <path d="M116,52V8H44c-6.63,0-12,5.37-12,12v152c0,6.63,5.37,12,12,12h104c6.63,0,12-5.37,12-12V52H116z M112,134 H60v-10h52V134z M132,110H60v-10h72V110z M132,86H60V76h72V86z" fill="#4285F4"/>
+        </g>
+    </svg>
+)
+
+export const GoogleSheetsIcon = ({ size = 16, className = '' }) => (
+    <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    enable-background="new 0 0 192 192" 
+    height={size} 
+    viewBox="0 0 192 192" 
+    width={size}>
+        <rect fill="none" height="192" width="192"/><g>
+            <polygon fill="#188038" points="116,8 160,52 138,56 116,52 112,30"/>
+            <path d="M116,52V8H44c-6.63,0-12,5.37-12,12v152c0,6.63,5.37,12,12,12h104c6.63,0,12-5.37,12-12V52H116z" fill="#34A853"/><path d="M56,76v58h80V76H56z M91,124H66v-14h25V124z M91,100H66V86h25V100z M126,124h-25v-14h25V124z M126,100h-25 V86h25V100z" fill="#FFFFFF"/>
+            </g>
+    </svg>
+)

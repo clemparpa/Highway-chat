@@ -1,6 +1,13 @@
 import React from 'react';
 import useLocalize from '~/hooks/useLocalize';
-import { GoogleGMailIcon, GoogleDriveIcon, GoogleAgendaIcon } from '~/components/svg';
+import { 
+  GoogleGMailIcon, 
+  GoogleDriveIcon, 
+  GoogleAgendaIcon,
+  GoogleChatIcon,
+  GoogleDocsIcon,
+  GoogleSheetsIcon
+} from '~/components/svg';
 import { IntegrationCard } from '~/components/Integrations/integrationCard';
 import { 
   useIntegrationEnabledQuery, 
@@ -32,6 +39,27 @@ const integrations = [
     icon: GoogleAgendaIcon,
     titleKey: 'com_integrations_gcalendar_title',
     descriptionKey: 'com_integrations_gcalendar_description',
+  },
+  {
+    provider: "google-workspace",
+    service: "chat",
+    icon: GoogleChatIcon,
+    titleKey: "com_integrations_gchat_title",
+    descriptionKey: "com_integrations_gchat_description",
+  },
+  {
+    provider: "google-workspace",
+    service: "docs",
+    icon: GoogleDocsIcon,
+    titleKey: "com_integrations_gdocs_title",
+    descriptionKey: "com_integrations_gdocs_description",
+  },
+  {
+    provider: "google-workspace",
+    service: "sheets",
+    icon: GoogleSheetsIcon,
+    titleKey: "com_integrations_gsheets_title",
+    descriptionKey: "com_integrations_gsheets_description",
   },
 ];
 
