@@ -137,7 +137,7 @@ const _refreshAccessTokenUtil = async (userId) => {
 
 const getAccessTokenController = async (req, res) => {
     try {
-        const token = await findToken({
+        let token = await findToken({
           userId: req.user.id,
           identifier: `integration-${PROVIDER}-access-token-${req.user.id}`
         });
@@ -153,7 +153,7 @@ const getAccessTokenController = async (req, res) => {
                 return res.status(401).json({ message: 'Unable to refresh access token' });
             }
 
-            await updateToken({ 
+            token = await updateToken({ 
                 userId: req.user.id,
                 identifier: `integration-${PROVIDER}-access-token-${req.user.id}`      
             }, {
@@ -162,21 +162,20 @@ const getAccessTokenController = async (req, res) => {
             });
 
             logger.debug('[getAccessTokenController] Token refreshed');
-            return res.json({ accessToken: newAccessTokenValues.accessToken });
         }      
-    
-        let tokenValue = null;
-        if (token?.token) {
-          tokenValue = decryptV3(token.token);
-        }
-
-        const userEmail = token?.metadata?.email;
-        if (!tokenValue || !userEmail) {
+        
+        if (!token) {
             logger.warn(`[getAccessTokenController] No access token found for user ${req.user.id}`);
             return res.status(401).json({ message: 'No access token found' });
         }
 
-        res.json({ accessToken: tokenValue, email: userEmail });
+        const response = {
+          accessToken: decryptV3(token.token),
+          email: token.metadata.email,
+          scopes: token.metadata.services || []
+        }
+
+        res.json(response);
     } catch (error) {
         logger.error('[getAccessTokenController]', error);
         return res.status(500).json({ message: 'Something went wrong.' });
