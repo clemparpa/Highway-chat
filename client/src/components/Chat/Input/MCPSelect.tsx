@@ -18,6 +18,7 @@ interface McpServerInfo {
   pluginKey: string;
   authConfig?: TPluginAuthConfig[];
   authenticated?: boolean;
+  icon?: string;
 }
 
 // Helper function to extract mcp_serverName from a full pluginKey like action_mcp_serverName
@@ -62,6 +63,7 @@ function MCPSelect({ conversationId }: { conversationId?: string | null }) {
               pluginKey: tool.pluginKey,
               authConfig: tool.authConfig,
               authenticated: tool.authenticated,
+              icon: tool.icon,
             });
           }
         }
@@ -143,6 +145,29 @@ function MCPSelect({ conversationId }: { conversationId?: string | null }) {
     return (mcpToolDetails ?? []).map((tool) => tool.name);
   }, [mcpToolDetails]);
 
+  // Dynamic icon: show selected server's icon if only one is selected, otherwise show default MCP icon
+  const selectIcon = useMemo(() => {
+    if (mcpValues?.length === 1) {
+      const selectedServerName = mcpValues[0];
+      const selectedServer = mcpToolDetails?.find((tool) => tool.name === selectedServerName);
+      if (selectedServer?.icon) {
+        return (
+          <img 
+            src={selectedServer.icon} 
+            alt={`${selectedServerName} icon`}
+            className="icon-md text-text-primary"
+            onError={(e) => {
+              // Fallback to default MCP icon if custom icon fails to load
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        );
+      }
+    }
+    // Default MCP icon for multiple selections, no selection, or no custom icon
+    return <MCPIcon className="icon-md text-text-primary" />;
+  }, [mcpValues, mcpToolDetails]);
+
   const handleConfigSave = useCallback(
     (targetName: string, authData: Record<string, string>) => {
       if (selectedToolForConfig && selectedToolForConfig.name === targetName) {
@@ -180,10 +205,23 @@ function MCPSelect({ conversationId }: { conversationId?: string | null }) {
       const tool = mcpToolDetails?.find((t) => t.name === serverName);
       const hasAuthConfig = tool?.authConfig && tool.authConfig.length > 0;
 
-      // Common wrapper for the main content (check mark + text)
+      // Common wrapper for the main content (check mark + text + custom icon)
       // Ensures Check & Text are adjacent and the group takes available space.
       const mainContentWrapper = (
-        <div className="flex flex-grow items-center">{defaultContent}</div>
+        <div className="flex flex-grow items-center gap-2">
+          {defaultContent}
+          {tool?.icon && (
+            <img 
+              src={tool.icon} 
+              alt={`${serverName} icon`}
+              className="h-4 w-4 flex-shrink-0"
+              onError={(e) => {
+                // Hide the image if it fails to load
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          )}
+        </div>
       );
 
       if (tool && hasAuthConfig) {
@@ -228,7 +266,7 @@ function MCPSelect({ conversationId }: { conversationId?: string | null }) {
         placeholder={localize('com_ui_mcp_servers')}
         popoverClassName="min-w-fit"
         className="badge-icon min-w-fit"
-        selectIcon={<MCPIcon className="icon-md text-text-primary" />}
+        selectIcon={selectIcon}
         selectItemsClassName="border border-blue-600/50 bg-blue-500/10 hover:bg-blue-700/10"
         selectClassName="group relative inline-flex items-center justify-center md:justify-start gap-1.5 rounded-full border border-border-medium text-sm font-medium transition-all md:w-full size-9 p-2 md:p-3 bg-transparent shadow-sm hover:bg-surface-hover hover:shadow-md active:shadow-inner"
       />

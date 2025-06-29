@@ -9,7 +9,10 @@ const GOOGLE_SCOPES = {
     ],
     gmail: [
       'https://www.googleapis.com/auth/gmail.readonly',  
-      'https://www.googleapis.com/auth/gmail.compose'  
+      'https://www.googleapis.com/auth/gmail.compose',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify',
+      'https://www.googleapis.com/auth/gmail.labels'
     ],
     drive: [
       'https://www.googleapis.com/auth/drive.readonly',
@@ -58,35 +61,6 @@ const errorController = async (req, res) => {
 }
 
 
-const checkEnabledController = async (req, res) => {
-    try {
-      logger.debug('[checkEnabledController] Checking integration status');
-
-      const token = await findToken({
-        identifier: `integration-${PROVIDER}-access-token-${req.user.id}`
-      });
-
-      if (!token) {
-        logger.debug('[checkEnabledController] Token not found');
-        return res.status(200).json({ enabled: [] });
-      }
-      
-      const tokenServices = token?.metadata?.services;
-
-      if (!tokenServices) {
-        logger.warn('[checkEnabledController] Token found but no services metadata');
-        return res.status(200).json({ enabled: [] });
-      }
-
-      const enabledServices = [...new Set(tokenServices.map(s => REVERSE_GOOGLE_SCOPES[s]))];
-      return res.status(200).json({ enabled: enabledServices });
-    } catch (error) {
-      logger.error('[checkEnabledController]', error);
-      return res.status(500).json({ message: 'Something went wrong.' });
-    }
-  }
-
-
 const _refreshAccessTokenUtil = async (userId) => {
     try {
         const refreshToken = await findToken({
@@ -133,6 +107,47 @@ const _refreshAccessTokenUtil = async (userId) => {
         return null;
     }
 }
+
+
+const checkEnabledController = async (req, res) => {
+  try {
+    logger.debug('[checkEnabledController] Checking integration status');
+
+    const token = await findToken({
+      identifier: `integration-${PROVIDER}-access-token-${req.user.id}`
+    });
+
+    if (!token) {
+      logger.debug('[checkEnabledController] Token not found. Trying to refresh');
+      const newToken = await _refreshAccessTokenUtil(req.user.id);
+      if (!newToken) {
+        logger.warn('[checkEnabledController] No access token found or unable to refresh');
+        return res.status(200).json({ enabled: [] });
+      }
+      const token = await findToken({
+        identifier: `integration-${PROVIDER}-access-token-${req.user.id}`
+      });
+      if (!token) {
+        logger.warn('[checkEnabledController] Token not found after refresh');
+        return res.status(200).json({ enabled: [] });
+      }
+    }
+    
+    const tokenServices = token?.metadata?.services;
+
+    if (!tokenServices) {
+      logger.warn('[checkEnabledController] Token found but no services metadata');
+      return res.status(200).json({ enabled: [] });
+    }
+
+    const enabledServices = [...new Set(tokenServices.map(s => REVERSE_GOOGLE_SCOPES[s]))];
+    return res.status(200).json({ enabled: enabledServices });
+  } catch (error) {
+    logger.error('[checkEnabledController]', error);
+    return res.status(500).json({ message: 'Something went wrong.' });
+  }
+}
+
 
 
 const getAccessTokenController = async (req, res) => {
