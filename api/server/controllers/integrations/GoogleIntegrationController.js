@@ -50,6 +50,228 @@ const domains = {
     server: process.env.DOMAIN_SERVER,
 };
 
+// Fonction utilitaire pour accéder aux métadonnées (gère Map et objet)
+const getMetadataValue = (metadata, key) => {
+  if (metadata instanceof Map) {
+    return metadata.get(key);
+  }
+  return metadata?.[key];
+};
+
+
+
+const findAccessToken = async (userId, provider = PROVIDER) => {
+  return await findToken({ 
+    userId, 
+    identifier: `integration-${provider}-access-token-${userId}`
+  });
+}
+
+const findRefreshToken = async (userId, provider = PROVIDER) => {
+  return await findToken({
+    userId,
+    identifier: `integration-${provider}-refresh-token-${userId}`
+  });
+}
+
+const createOrUpdateAccessToken = async ({userId, token, expiresIn = null, services = null, userEmail = null}) => {
+  const previousToken = await findAccessToken(userId);
+  if(!!previousToken){
+    return await updateToken({userId, identifier: `integration-${PROVIDER}-access-token-${userId}`}, {
+      token: encryptV3(token),
+      expiresAt: new Date(Date.now() + (expiresIn || 3600) * 1000),
+      metadata: {
+        type: "access_token",
+        provider: PROVIDER,
+        email: (userEmail ?? getMetadataValue(previousToken.metadata, 'email')) ?? null,
+        services: (services ?? getMetadataValue(previousToken.metadata, 'services')) || []
+      }
+    })
+  }
+  return await createToken({
+    userId,
+    identifier: `integration-${PROVIDER}-access-token-${userId}`,
+    type: `integration-${PROVIDER}-access-token`,
+    token: encryptV3(token),
+    expiresIn,
+    metadata: {
+      type: "access_token",
+      provider: PROVIDER,
+      email: userEmail,
+      services
+    }
+  })
+}
+
+const createOrUpdateRefreshToken = async ({userId, token, expiresIn = null, services = null, userEmail = null}) => {
+  const previousToken = await findRefreshToken(userId);
+  if(!!previousToken){
+    return await updateToken({userId, identifier: `integration-${PROVIDER}-refresh-token-${userId}`}, {
+      token: encryptV3(token),
+      expiresAt: new Date(Date.now() + (expiresIn || 3600*24*7) * 1000),
+      metadata: {
+        type: "refresh_token",
+        provider: PROVIDER,
+        email: (userEmail ?? getMetadataValue(previousToken.metadata, 'email')) ?? null,
+        services: (services ?? getMetadataValue(previousToken.metadata, 'services')) || []
+      }
+    })
+  }
+  if(!userEmail || !services) {
+    return null
+  }
+
+  return await createToken({
+    userId,
+    identifier: `integration-${PROVIDER}-refresh-token-${userId}`,
+    type: `integration-${PROVIDER}-refresh-token`,
+    token: encryptV3(token),
+    expiresIn,
+    metadata: {
+      type: "refresh_token",
+      provider: PROVIDER,
+      email: userEmail,
+      services
+    }
+  })
+}
+
+const refreshAccessToken = async (userId) => {
+  logger.debug(`[refreshAccessToken] Refreshing access token for user ${userId}`);
+  const refreshToken = await findRefreshToken(userId);
+  if(!refreshToken) {
+    logger.debug(`[refreshAccessToken] No refresh token found for user ${userId}`);
+    return null;
+  }
+  if(new Date() > refreshToken.expiresAt) {
+    logger.warn(`[refreshAccessToken] Refresh token expired for user ${userId}`);
+    return null;
+  }
+
+  try{
+    const refreshTokenValue = decryptV3(refreshToken.token);        
+    const url = 'https://oauth2.googleapis.com/token';
+
+    const params = new URLSearchParams();
+    params.append('client_id', process.env.INTEGRATIONS_GOOGLE_CLIENT_ID);
+    params.append('client_secret', process.env.INTEGRATIONS_GOOGLE_CLIENT_SECRET);
+    params.append('refresh_token', refreshTokenValue);
+    params.append('grant_type', 'refresh_token');
+    const newRefreshTokenResponse = await (await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params
+    })).json();
+
+    if (!newRefreshTokenResponse) {
+      logger.error(`[refreshAccessToken] No response from Google API for user ${userId}`);
+      return null;
+    }
+
+    const newAccessToken = newRefreshTokenResponse.access_token;
+    const newExpiresIn = newRefreshTokenResponse.expires_in;
+    const newScopes = newRefreshTokenResponse.scope.split(" ");
+    const userEmail = getMetadataValue(refreshToken.metadata, 'email') ?? null;
+
+    if (!newAccessToken || !userEmail || (newScopes.length === 0)) {
+      logger.error(`[refreshAccessToken] Invalid response from Google API for user ${userId}`)
+      return null;
+    }
+    
+    const newToken = await createOrUpdateAccessToken({
+      userId,
+      token: newAccessToken,
+      expiresIn: newExpiresIn,
+      services: newScopes,
+      userEmail: userEmail
+    })
+    if (!newToken) {
+      logger.error(`[refreshAccessToken] Failed to create or update access token for user ${userId}`);
+      return null;
+    }
+    return newToken;
+  }
+  catch (error) {
+    logger.error(`[refreshAccessToken] Error refreshing access token for user ${userId}`, error);
+    return null;
+  } 
+}
+
+const findAccessTokenWithRefreshIfNeeded = async (userId) => {
+  const token = await findAccessToken(userId);
+
+  if(!token) {
+    logger.debug(`[findAccessTokenWithRefreshIfNeeded] No access token found for user ${userId}. Refreshing...`);
+    const newToken = await refreshAccessToken(userId)
+    if(!newToken) {
+      logger.debug(`[findAccessTokenWithRefreshIfNeeded] No new access token found for user ${userId}`);
+      return null;
+    }
+    return newToken;
+  }
+
+  if(new Date() > token.expiresAt - 60000) {    
+    logger.debug(`[findAccessTokenWithRefreshIfNeeded] token invalid found for user ${userId}. Refreshing...`);
+    const newToken = await refreshAccessToken(userId)
+    if(!newToken) {
+      logger.debug(`[findAccessTokenWithRefreshIfNeeded] No new access token found for user ${userId}`);
+      return null;
+    }
+    return newToken;
+  }
+
+  return token;
+}    
+
+
+const createSessionStateToken = async (userId, state, service) => {
+  return await createToken({
+      userId: userId,
+      type: 'integration-state-token',
+      identifier: `integration-${PROVIDER}-${userId}-${Date.now()}`,
+      token: state,
+      expiresIn: 300,
+      metadata: {
+        provider: PROVIDER,
+        service: service,
+        userId: userId,
+      }
+  });
+}
+
+const findSessionStateToken = async (state) => {
+  logger.debug(`[retrieveSessionStateToken] Retrieving session state token`);
+  const token = await findToken({
+    token: state
+  })
+  logger.debug(
+    `[retrieveSessionStateToken] Found token: ${!!token}`);
+  if (!token) {
+    return {};
+  }
+  if (new Date() > token.expiresAt) {
+    await deleteTokens({ token: token.token });
+    return {};
+  }
+  const { service, userId } = token?.metadata || {};
+  const retrievedState = token.token;
+  await deleteTokens({ token: token.token });    
+  if (!service || !userId || !retrievedState) {
+    return {};
+  }
+
+  if(state !== retrievedState) {
+    logger.warn(`[retrieveSessionStateToken] State mismatch for user ${userId}. Expected: ${retrievedState}, Received: ${state}`);
+    return {};
+  }
+
+  return {
+    userId: userId,
+    service: service,
+  };
+}
 
 
 const errorController = async (req, res) => {
@@ -61,80 +283,18 @@ const errorController = async (req, res) => {
 }
 
 
-const _refreshAccessTokenUtil = async (userId) => {
-    try {
-        const refreshToken = await findToken({
-            userId,
-            identifier: `integration-${PROVIDER}-refresh-token-${userId}`
-        });
-    
-        if (!refreshToken) {
-            return null;
-        }
-    
-        if (new Date() > refreshToken.expiresAt) {
-            return null;
-        }    
-
-        const refreshTokenValue = decryptV3(refreshToken.token);        
-        const url = 'https://oauth2.googleapis.com/token';
-
-        const params = new URLSearchParams();
-        params.append('client_id', process.env.INTEGRATIONS_GOOGLE_CLIENT_ID);
-        params.append('client_secret', process.env.INTEGRATIONS_GOOGLE_CLIENT_SECRET);
-        params.append('refresh_token', refreshTokenValue);
-        params.append('grant_type', 'refresh_token');
-
-        const newRefreshTokenResponse = await (await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: params
-        })).json();
-
-        if (!newRefreshTokenResponse) {
-            return null;
-        }
-
-        return {
-            accessToken: newRefreshTokenResponse.access_token,
-            expiresIn: newRefreshTokenResponse.expires_in,
-            scopes: newRefreshTokenResponse.scope.split(" "),
-        };
-    } catch (error) {
-        logger.error('[_refreshAccessTokenUtil]', error);
-        return null;
-    }
-}
-
-
 const checkEnabledController = async (req, res) => {
   try {
     logger.debug('[checkEnabledController] Checking integration status');
-
-    const token = await findToken({
-      identifier: `integration-${PROVIDER}-access-token-${req.user.id}`
-    });
-
+    
+    const token = await findAccessTokenWithRefreshIfNeeded(req.user.id);
     if (!token) {
-      logger.debug('[checkEnabledController] Token not found. Trying to refresh');
-      const newToken = await _refreshAccessTokenUtil(req.user.id);
-      if (!newToken) {
-        logger.warn('[checkEnabledController] No access token found or unable to refresh');
-        return res.status(200).json({ enabled: [] });
-      }
-      const token = await findToken({
-        identifier: `integration-${PROVIDER}-access-token-${req.user.id}`
-      });
-      if (!token) {
-        logger.warn('[checkEnabledController] Token not found after refresh');
-        return res.status(200).json({ enabled: [] });
-      }
+      logger.error('[checkEnabledController] Token not found after refresh');
+      return res.status(200).json({ enabled : [] });
     }
     
-    const tokenServices = token?.metadata?.services;
-
+    // Gérer le cas où metadata est une Map ou un objet
+    const tokenServices = getMetadataValue(token.metadata, 'services');
     if (!tokenServices) {
       logger.warn('[checkEnabledController] Token found but no services metadata');
       return res.status(200).json({ enabled: [] });
@@ -149,45 +309,25 @@ const checkEnabledController = async (req, res) => {
 }
 
 
-
 const getAccessTokenController = async (req, res) => {
     try {
-        let token = await findToken({
-          userId: req.user.id,
-          identifier: `integration-${PROVIDER}-access-token-${req.user.id}`
-        });
+        const token = await findAccessTokenWithRefreshIfNeeded(req.user.id);
 
         if (!token) {
             return res.status(401).json({ message: 'No access token found' });
         }
-
-        if (new Date() > token.expiresAt - 60000) {
-            const newAccessTokenValues = await _refreshAccessTokenUtil(req.user.id);
-
-            if (!newAccessTokenValues) {
-                return res.status(401).json({ message: 'Unable to refresh access token' });
-            }
-
-            token = await updateToken({ 
-                userId: req.user.id,
-                identifier: `integration-${PROVIDER}-access-token-${req.user.id}`      
-            }, {
-                token: encryptV3(newAccessTokenValues.accessToken),
-                expiresAt: new Date(Date.now() + newAccessTokenValues.expiresIn * 1000)
-            });
-
-            logger.debug('[getAccessTokenController] Token refreshed');
-        }      
         
-        if (!token) {
-            logger.warn(`[getAccessTokenController] No access token found for user ${req.user.id}`);
-            return res.status(401).json({ message: 'No access token found' });
+        // Gérer le cas où metadata est une Map ou un objet
+        const email = getMetadataValue(token.metadata, 'email') || null;
+        if (!email) {
+            logger.warn(`[getAccessTokenController] No email found in token metadata for user ${req.user.id}`);
+            return res.status(400).json({ message: 'No email found in token metadata' });
         }
 
         const response = {
           accessToken: decryptV3(token.token),
-          email: token.metadata.email,
-          scopes: token.metadata.services || []
+          email: email,
+          scopes: getMetadataValue(token.metadata, 'services') || []
         }
 
         res.json(response);
@@ -225,52 +365,6 @@ const initAuthController = async (req, res) => {
     }
   }
 
-const _createSessionStateToken = async (userId, state, service) => {
-  return await createToken({
-      userId: userId,
-      type: 'integration-state-token',
-      identifier: `integration-${PROVIDER}-${userId}-${Date.now()}`,
-      token: state,
-      expiresIn: 300,
-      metadata: {
-        provider: PROVIDER,
-        service: service,
-        userId: userId,
-      }
-  });
-}
-
-const _retrieveSessionStateToken = async (state) => {
-  logger.debug(`[retrieveSessionStateToken] Retrieving session state token`);
-  const token = await findToken({
-    token: state
-  })
-  logger.debug(
-    `[retrieveSessionStateToken] Found token: ${!!token}`);
-  if (!token) {
-    return {};
-  }
-  if (new Date() > token.expiresAt) {
-    await deleteTokens({ token: token.token });
-    return {};
-  }
-  const { service, userId } = token?.metadata || {};
-  const retrievedState = token.token;
-  await deleteTokens({ token: token.token });    
-  if (!service || !userId || !retrievedState) {
-    return {};
-  }
-
-  if(state !== retrievedState) {
-    logger.warn(`[retrieveSessionStateToken] State mismatch for user ${userId}. Expected: ${retrievedState}, Received: ${state}`);
-    return {};
-  }
-
-  return {
-    userId: userId,
-    service: service,
-  };
-}
 
 const askAuthTokenController = async (req, res, next) => {
     try {
@@ -315,7 +409,7 @@ const askAuthTokenController = async (req, res, next) => {
       scopes = [...GOOGLE_SCOPES.userinfo, ...scopes]
 
       const state = await getRandomValues(32)
-      const stateToken = _createSessionStateToken(userId, state, askedService)
+      const stateToken = createSessionStateToken(userId, state, askedService)
       
       await passport.authenticate(`integrations-${PROVIDER}`, {
         session: false,
@@ -345,40 +439,13 @@ const askAuthTokenCallbackController = async (req, res, next) => {
     }
 }
 
-const _createOrUpdateIntegrationToken = async ({userId, identifier, token, expiresIn, tokenType, services, userEmail}) => {
-  const previousToken = await findToken({identifier})
-  if(!!previousToken){
-    return await updateToken({identifier}, {
-      token: encryptV3(token),
-      expiresAt: new Date(Date.now() + expiresIn * 1000),
-      metadata: {
-        type: tokenType,
-        provider: PROVIDER,
-        email: userEmail,
-        services
-      }
-    })
-  }
-  return await createToken({
-    userId,
-    identifier,
-    type: `integration-${PROVIDER}-${tokenType}`,  
-    token: encryptV3(token),
-    expiresIn,
-    metadata: {
-      type: tokenType,
-      provider: PROVIDER,
-      services,
-      email: userEmail
-    }
-  })
-}
+
 
 const createAccessAndRefreshTokenController = async (req, res, next) => {
     try {
       const { state } = req.query;
 
-      const { userId, service} = await _retrieveSessionStateToken(state);
+      const { userId, service} = await findSessionStateToken(state);
 
       if (!userId || !service) {
         return res.redirect(`${domains.server}/api/integrations/error?reason=invalid_state`);
@@ -397,31 +464,27 @@ const createAccessAndRefreshTokenController = async (req, res, next) => {
       }
 
       if (accessToken) {
-        await _createOrUpdateIntegrationToken({
+        await createOrUpdateAccessToken({
           userId,
-          identifier: `integration-${PROVIDER}-access-token-${userId}`,
           token: accessToken,
           expiresIn: expiresIn,
-          tokenType: "access_token",
-          services,
-          userEmail,
-        });
+          services: services,
+          userEmail: userEmail
+        })
       }
       
       if (refreshToken) {
-        await _createOrUpdateIntegrationToken({
+        await createOrUpdateRefreshToken({
           userId,
-          identifier: `integration-${PROVIDER}-refresh-token-${userId}`,
           token: refreshToken,
           expiresIn: refreshTokenExpiresIn,
-          tokenType: "refresh_token",
-          services,
-          userEmail,
+          services: services,
+          userEmail: userEmail
         });
       }
       
       logger.debug(`[createAccessAndRefreshTokenController] OAuth completed for user ${userId}, service ${service}`);
-      res.redirect(`${domains.client}`);
+      res.redirect(`${domains.client}/integrations/google-workspace`);
     } catch (error) {
       logger.error('[createAccessAndRefreshTokenController]', error);
       res.redirect(`${domains.server}/api/integrations/error?reason=server_error`);
@@ -433,10 +496,7 @@ const revokeTokenAndDeleteController = async (req, res, next) => {
     try {
         const userId = req.user.id;    
 
-        const accessToken = await findToken({
-            userId,
-            identifier: `integration-${PROVIDER}-access-token-${userId}`
-        });
+        const accessToken = await findAccessTokenWithRefreshIfNeeded(userId)
     
         if (!accessToken) {
             return res.status(404).json({ message: 'No access token found' });
